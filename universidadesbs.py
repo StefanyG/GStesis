@@ -70,7 +70,7 @@ for url in urls:
                                  Id_A TEXT PRIMARY KEY,
                                  Nombre_Autor TEXT NOT NULL,
                                  Cargo TEXT NOT NULL,
-                                 Email TEXT NOT NULL,
+                                 Dominio TEXT NOT NULL,
                                  Citaciones TEXT NOT NULL,
                                  Intereses TEXT NOT NULL,
                                  Links TEXT NOT NULL
@@ -98,7 +98,7 @@ for url in urls:
 
                 results.append(mydata)
                 # Se guardan los datos en la base de datos 
-                cursor.executemany("""INSERT OR IGNORE INTO Autor (Id_A, Nombre_Autor, Cargo, Email, 
+                cursor.executemany("""INSERT OR IGNORE INTO Autor (Id_A, Nombre_Autor, Cargo, Dominio, 
                 Citaciones, Intereses, Links) VALUES (?, ?, ?, ?, ?, ?,?)""", [mydata])
                 conn.commit()
                 
