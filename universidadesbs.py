@@ -12,43 +12,34 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait as W
 from selenium.webdriver.support import expected_conditions as EC
+from csv import writer
 
 USER_AGENT = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
               'Chrome/61.0.3163.100 Safari/537.36'}
 
-#chrome_path = r"chromedriver.exe"
-#driver = webdriver.Chrome(chrome_path)
+# Se abre el navegador Chrome en modo headless (fantasma)
 chrome_options = Options()
 chrome_options.add_argument("--headless")
 options = webdriver.ChromeOptions()
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
 chrome_options.add_argument("--window-size=1920,1080")
 driver = webdriver.Chrome(executable_path='<path-to-chrome>', options=options)
-chrome_options.add_argument("--disable-extensions")
-chrome_options.add_argument("--proxy-server='direct://'")
-chrome_options.add_argument("--proxy-bypass-list=*")
-chrome_options.add_argument("--start-maximized")
-chrome_options.add_argument('--disable-gpu')
-chrome_options.add_argument('--disable-dev-shm-usage')
-chrome_options.add_argument('--no-sandbox')
-chrome_options.add_argument('--ignore-certificate-errors')
-chrome_options.add_argument('--log-level=3')
-chrome_options.add_argument('--allow-running-insecure-content')
 
 results = []
 button_locators = "//button[@class='gs_btnPR gs_in_ib gs_btn_half gs_btn_lsb gs_btn_srt gsc_pgn_pnx']"
 wait = W(driver, 2)
 
+# Se abren las urls que se encuentran almacenadas en un archivo csv
 urls = []
 with open(r'urlspages.csv', 'r') as f:
     for line in f:
         urls.append(line)
 
+# Se crea un loop y con Selenium se obtiene la url y se encuentra el boton para avanzar a la siguiente página
 for url in urls:
     data = {}
     driver.get(url)
     button_link = wait.until(EC.element_to_be_clickable((By.XPATH, button_locators)))
-    # button_link = wait.until(EC.visibility_of_all_elements_located((By.XPATH, button_locators)))
     start_time = time.time()
     start_timing = datetime.datetime.now()
     response = requests.get(url, headers=USER_AGENT)
@@ -57,16 +48,23 @@ for url in urls:
     while button_link:
         try:
             wait.until(EC.visibility_of_element_located((By.ID, 'gsc_sa_ccl')))
+            # Se analiza y prepara el HTML
             soup = BeautifulSoup(driver.page_source, 'html.parser')
             posts = soup.find_all('div', attrs={'class': 'gsc_1usr'})
             time.sleep(2)
+            
+            # Se crea un archivo csv para guardar las urls de los perfiles 
+            with open('Autor.csv', 'a', encoding="utf-8", newline='') as s:
+                csv_writer = writer(s)
+                
+            # Se crea la conexión a la base de datos
             try:
                 conn = sqlite3.connect('scholar.db')
-                # conn = sqlite3.connect(':memory:')
+                
             except:
                 print("No connection")
                 sys.exit(0)
-
+            # Se crea si no existe, la tabla de autor en la base de datos
             cursor = conn.cursor()
             cursor.execute("""CREATE TABLE IF NOT EXISTS Autor (
                                  Id_A TEXT PRIMARY KEY,
@@ -77,6 +75,7 @@ for url in urls:
                                  Intereses TEXT NOT NULL,
                                  Links TEXT NOT NULL
                                  )""")
+             # Se obtienen los datos del autor 
             for post in posts:
                 linkfoto = post.find('a', attrs={'class': 'gs_ai_pho'})
                 l = linkfoto.get('href')
@@ -92,18 +91,17 @@ for url in urls:
                 except:
                     citas = 0
                     univ = ''
-                tags = post.find(class_='gs_ai_int').get_text().replace('\n', '')
-
-                # print(idautor, univ, citas)
-                # print(nombre, uni, mail, citas, tags, link)
+                tags = post.find(class_='gs_ai_int').get_text().replace('\n', '')            
                 mydata = ([idautor, nombre, uni, univ, citas, tags, link])
+                # Se guarda el link del autor en el csv
+                csv_writer.writerow([link])
 
                 results.append(mydata)
-
+                # Se guardan los datos en la base de datos 
                 cursor.executemany("""INSERT OR IGNORE INTO Autor (Id_A, Nombre_Autor, Cargo, Email, 
                 Citaciones, Intereses, Links) VALUES (?, ?, ?, ?, ?, ?,?)""", [mydata])
                 conn.commit()
-                # print(f'Data inserted: {mydata}')
+                
 
             button_link = wait.until(EC.element_to_be_clickable((By.XPATH, button_locators)))
             button_link.click()
