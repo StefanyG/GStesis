@@ -27,78 +27,23 @@ r = requests.get(url=URL, params=PARAMS, headers=headers)
 
 #chrome_path = r"chromedriver.exe"
 #driver = webdriver.Chrome(chrome_path)
+
+# Se abre el navegador Chrome en modo headless (fantasma)
 chrome_options = Options()
 chrome_options.add_argument("--headless")
 options = webdriver.ChromeOptions()
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
 chrome_options.add_argument("--window-size=1920,1080")
 driver = webdriver.Chrome(options=chrome_options)
-# driver = webdriver.Chrome(executable_path='<path-to-chrome>', options=options)
-chrome_options.add_argument("--disable-extensions")
-chrome_options.add_argument("--proxy-server='direct://'")
-chrome_options.add_argument("--proxy-bypass-list=*")
-chrome_options.add_argument("--start-maximized")
-chrome_options.add_argument('--disable-gpu')
-chrome_options.add_argument('--disable-dev-shm-usage')
-chrome_options.add_argument('--no-sandbox')
-chrome_options.add_argument('--ignore-certificate-errors')
-chrome_options.add_argument('--log-level=3')
-chrome_options.add_argument('--allow-running-insecure-content')
+
 wait = W(driver, 1)
 papers = []
-try:
-    conn = sqlite3.connect('scholar.db')
-except:
-    print("No connection")
-    sys.exit(0)
-
-cur = conn.cursor()
-cur2 = conn.cursor()
-
-cur2.execute("""ALTER table Autor ADD COLUMN Año_Desde INTEGER""")
-cur2.execute("""ALTER table Autor ADD COLUMN Hindex_todo INTEGER """)
-cur2.execute("""ALTER table Autor ADD COLUMN Hindex_Desde INTEGER  """)
-cur2.execute("""ALTER table Autor ADD COLUMN Todas_Citas INTEGER  """)
-cur2.execute("""ALTER table Autor ADD COLUMN Citas_Desde INTEGER """)
-cur2.execute("""ALTER table Autor ADD COLUMN Id_Institucion TEXT """)
-
-cur.execute("""CREATE TABLE IF NOT EXISTS Autor_Paper (
-                                 A_id INTEGER PRIMARY KEY,
-                                 Paper_Id TEXT NOT NULL,
-                                 AutorPaper_Id TEXT NOT NULL,
-                                 Autor_Id TEXT NOT NULL,                                                               
-                                 Titulo_Paper TEXT NOT NULL,
-                                 Autores_Paper TEXT NOT NULL,
-                                 Revista TEXT NOT NULL,
-                                 Revista_sp TEXT NOT NULL,
-                                 Revista_m TEXT NOT NULL,          
-                                 Citado_Por TEXT NOT NULL,
-                                 Año TEXT NOT NULL,                                                  
-                                 Link_Paper TEXT NOT NULL
-                                 )""")
-cur.execute("""CREATE TABLE IF NOT EXISTS Coautores (
-                                 Id INTEGER PRIMARY KEY,
-                                 Coautor_Id TEXT,
-                                 Coautor TEXT,
-                                 Institucion TEXT,                               
-                                 Dominio TEXT,
-                                 A_Id TEXT
-                                 )""")
-cur.execute("""CREATE TABLE IF NOT EXISTS Citas (
-                                 id INTEGER PRIMARY KEY,    
-                                 Autor_Id TEXT,
-                                 Year_hist TEXT,
-                                 Citas_hist TEXT
-                                 )""")
-# cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_positions_citas ON Citas (Autor_Id)""")
-# cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_positions_coautores ON Coautores (A_Id)""")
-conn.commit()
-
+# Se abren las urls que se encuentran almacenadas en un archivo csv
 urls = []
 with open(r'Autor.csv', 'r') as f:
     for line in f:
         urls.append(line)
-
+# Se crea un loop y con Selenium se obtiene la url y se encuentra el boton para mostrar el resto de las publicaciones
 for url in urls:
     try:
         driver.get(url)
@@ -110,7 +55,7 @@ for url in urls:
         continue
     start_timing = datetime.datetime.now()
     start_time = time.time()
-
+     # Se analiza y prepara el HTML
     while True:
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         citation_indices = soup.find('table', attrs={'id': 'gsc_rsb_st'})
@@ -122,6 +67,7 @@ for url in urls:
         citashist = soup.findAll('span', class_='gsc_g_al')
         time.sleep(1)
         try:
+        # Se obtienen los datos del autor y la publicación
             for coautho in coauthors:
                 nameco = coautho.find('a', attrs={'tabindex': '-1'})
                 coautor = nameco.text or ''
@@ -139,8 +85,8 @@ for url in urls:
                 idp_a = linkpaper.split('=')[-1]  # id paper-autor
                 id_a = idp_a.split(':')[-2]
                 coa = [idco, coautor, inst, univ, id_a]
-                print(id_a)
-                print(coautor)
+               
+               
                 cur.execute('''INSERT OR IGNORE INTO Coautores (Coautor_Id, Coautor,Institucion, Dominio, A_Id) VALUES 
                 (?, ?, ?, ?, ?)''',coa)
         except:
@@ -163,6 +109,7 @@ for url in urls:
             conn.commit()
         except:
             pass
+            # Se obtienen los datos del autor y la publicación
         try:
             for i, research in enumerate(research_article, 1):
                 # nombre perfil
